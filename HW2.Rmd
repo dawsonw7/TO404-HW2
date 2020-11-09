@@ -1,0 +1,137 @@
+---
+title: "TO 404 HW#2"
+author: "Dawson Wang"
+date: "11/7/2020"
+output: 
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+## Import & Consolidate Data
+```{r, eval = FALSE}
+
+# Read in all twelve months worth of data
+
+jan <- read.csv("JC-201901-citibike-tripdata.csv")
+feb <- read.csv("JC-201902-citibike-tripdata.csv")
+mar <- read.csv("JC-201903-citibike-tripdata.csv")
+apr <- read.csv("JC-201904-citibike-tripdata.csv")
+may <- read.csv("JC-201905-citibike-tripdata.csv")
+jun <- read.csv("JC-201906-citibike-tripdata.csv")
+jul <- read.csv("JC-201907-citibike-tripdata.csv")
+aug <- read.csv("JC-201908-citibike-tripdata.csv")
+sep <- read.csv("JC-201909-citibike-tripdata.csv")
+oct <- read.csv("JC-201910-citibike-tripdata.csv")
+nov <- read.csv("JC-201911-citibike-tripdata.csv")
+dec <- read.csv("JC-201912-citibike-tripdata.csv")
+
+# Create .csv file consisting of merged data, called "citibike2019.csv"
+
+citibike <- rbind(jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec)
+write.csv(x = citibike, file = "citibike2019.csv")
+```
+
+```{r}
+# Change variable data types
+library("ggplot2")
+citibike <- read.csv("citibike2019.csv")
+citibike$start.station.id <- as.factor(citibike$start.station.id)
+citibike$start.station.name <- as.factor(citibike$start.station.name)
+citibike$end.station.id <- as.factor(citibike$end.station.id)
+citibike$end.station.name <- as.factor(citibike$end.station.name)
+citibike$bikeid <- as.factor(citibike$bikeid)
+citibike$usertype <- as.factor(citibike$usertype)
+citibike$gender <- as.factor(citibike$gender)
+citibike$age <- 2019 - citibike$birth.year
+citibike$date <- substr(citibike$starttime, 1, 10)
+citibike$date <- as.factor(citibike$date)
+citibike$month <- substr(citibike$starttime, 6, 7)
+citibike$month <- as.factor(citibike$month)
+citibike$starthour <- substr(citibike$starttime, 12, 13)
+citibike$starthour <- as.numeric(citibike$starthour)
+citibike$endhour <- substr(citibike$stoptime, 12, 13)
+citibike$morning.rush.hour <- 0
+citibike$morning.rush.hour[citibike$starthour > 6 & citibike$starthour < 11] <- 1
+citibike$morning.rush.hour <- as.factor(citibike$morning.rush.hour)
+citibike$evening.rush.hour <- 0
+citibike$evening.rush.hour[citibike$starthour > 4 & citibike$starthour < 9] <- 1
+citibike$evening.rush.hour <- as.factor(citibike$evening.rush.hour)
+citibike$X <- 1
+```
+
+## Questions to Answer
+
+Do men or women use Citibikes more often?
+How long on average are Citibike trips?
+Do subscribers or customers tend to have longer trip durations?
+Do men or women differ in the duration of their Citibike trips?
+Does daily Citibike usage differ by month?
+What's the share of subscribers vs. customers within Citibike's user base?
+Which stations have more subscribers vs. customers?
+
+## Data Exploration & Analysis
+
+Checking if Gender = 0 means it was a customer (rather than subscriber):
+```{r}
+nrow(citibike[citibike$gender == "0",])
+nrow(citibike[citibike$usertype == "Customer",])
+```
+
+Not sure what the "Unknown" gender means. Are users/subscribers able to select "Other" during registration? Are non-subscribers given the chance to provide that information? In what situation would gender be entered as "Unknown?"
+
+Average age of Citibike users: `r round(mean(citibike$age, na.rm = TRUE), digits = 0)` years old
+
+Average age of male Citibike users: `r round(mean(citibike[citibike$gender == "1", "age"], na.rm = TRUE), digits = 0)` years old
+
+Average age of female Citibike users: `r round(mean(citibike[citibike$gender == "2", "age"], na.rm = TRUE), digits = 0)` years old
+
+On average, we see that in 2019, male Citibike users were older than the average female Citibike user.
+
+Average duration of Citibike trips: `r round(mean(citibike$tripduration, na.rm = TRUE), digits = 0)` seconds
+
+Average duration of Citibike trips by men: `r round(mean(citibike[citibike$gender == "1", "tripduration"], na.rm = TRUE), digits = 0)` seconds
+
+Average duration of Citibike trips by women: `r round(mean(citibike[citibike$gender == "2", "tripduration"], na.rm = TRUE), digits = 0)` seconds
+
+In 2019, we see that men, on average, book Citibikes for a shorter amount of time than women. This could be due to a few possibilities: 1) men may tend to ride bikes faster 2) more men may be taking the subway for trips they anticipate will take longer than 9-10 minutes by bicycle, whereas women may be more inclined to take the Citibike, despite the distance. Additionally, these values for men and women are not indicative of the broader picture, since there are many trips with a duration over 2000 seconds with the gender column being entered as "Unknown."
+
+Average duration of Citibike trips by user type:
+```{r}
+barplot(tapply(citibike$tripduration, citibike$usertype, mean, na.rm = TRUE))
+```
+
+As seen in the barplot, trip durations look to be drastically higher for customers than subscribers. This could be due to the fact that customers are more inclined to think about whether renting a Citibike is worth the distance, causing them to rent only when distances are long, whereas subscribers don't have to feel bad about renting bikes for short distances, since their rates are probably significantly lower. 
+
+
+Total number of Citibike trips by month:
+```{r}
+barplot(tapply(citibike$X, citibike$month, sum, na.rm = TRUE))
+```
+
+In the barplot, we see that Citibike rentals pick up beginning in the spring season, reaching a peak in September before declining for the winter.
+
+Total 2019 departures during MORNING rush hour by station (7-10AM):
+```{r}
+morning.departures <- tapply(citibike[citibike$morning.rush.hour == "1", "X"], citibike[citibike$morning.rush.hour == "1", "start.station.name"], sum, na.rm = TRUE)
+barplot(morning.departures[order(morning.departures, decreasing = TRUE)])
+
+```
+
+Total 2019 departures during EVENING rush hour by station (5-8PM):
+```{r}
+evening.departures <- tapply(citibike[citibike$evening.rush.hour == "1", "X"], citibike[citibike$evening.rush.hour == "1", "start.station.name"], sum, na.rm = TRUE)
+barplot(evening.departures[order(evening.departures, decreasing = TRUE)])
+```
+
+Seeing as both these charts show the most rides out of Hamilton Park, we can assume Hamilton Park is an area of high demand. However, these numbers could be inaccurate in the case that unusual events occurred during the year, since these are totals, as opposed to averages.
+
+```{r}
+ggplot(data=citibike, aes(x=gender, y=X)) + geom_col()
+```
+
+From the chart above, we can see that the vast majority of Citibike users are men.
+
+
+
+
